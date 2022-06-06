@@ -1,0 +1,657 @@
+---
+title: "SpeciesRisk"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+This file takes in input from M. Jacox on species historical and future ranges related to various oceanographic factors and using those inputs, calculates an exposure and sensitivity to climate change for each species for each oceanographic factor. Then, combines sensitivites and exposures for an overall species risk
+
+##############################################################################
+
+```{r}
+library(factoextra)
+library(here)
+species_list = read.csv("FINALspecieslist_used.csv", header = TRUE)
+species_list$nameuse = sub(" ", "_", as.character(species_list$Scientific.name))
+'%!in%' <- function(x,y)!('%in%'(x,y))
+here::here()
+```
+
+```{r}
+
+# do for every climate predictor
+#chl_hist = read.delim("CCS_roms/Chl_distribution_historical.txt", header = TRUE, sep =',') example
+
+# NOTE: gfdl vs. had vs. ipsl model! 
+
+#SPECIES EXPOSURE 
+basedir = "2030-2060/overlap/"
+model = c("gfdl", "had", "ipsl")
+chlsurface_overlap = read.csv(paste(basedir, "chl_surface_", model[1],"_overlap.csv", sep=""), header = TRUE, sep =',')
+
+which(chlsurface_overlap$Species_Name %!in% species_list$nameuse)
+remove = which(chlsurface_overlap$Species_Name %!in% species_list$nameuse)
+chlsurface_overlap = chlsurface_overlap[-remove,]
+
+range01 <- function(x){(x-min(x))/(max(x)-min(x))} 
+
+library(dplyr)
+species_info = species_list %>% select(nameuse, habitat)
+
+# to test
+#species_info = species_info[-68,] # don't run normally 
+
+#model = 'gfdl'
+
+calc_species_exposure <- function(model, remove = remove, species_info = species_info, basedir = basedir) {
+  listname = paste(model,"exposure",sep = "_")
+  templist = list()
+
+  
+  chlsurface_overlap = read.csv(paste(basedir, "chl_surface_", model,"_overlap.csv", sep=""), header = TRUE, sep =',')
+  #chlsurface_overlap = chlsurface_overlap[-remove,]
+
+  chl50_overlap = read.csv(paste(basedir, "chl_50m_", model,"_overlap.csv", sep=""), header = TRUE, sep =',')
+  #chl50_overlap = chl50_overlap[-remove,]
+  
+  oxy2.0_overlap = read.csv(paste(basedir, "depth_oxygen_2.0_", model,"_overlap.csv", sep=""), header = TRUE, sep =',')
+  #oxy2.0_overlap = oxy2.0_overlap[-remove,]
+  oxy3.5_overlap = read.csv(paste(basedir, "depth_oxygen_3.5_", model,"_overlap.csv", sep=""), header = TRUE, sep =',')
+  #oxy3.5_overlap = oxy3.5_overlap[-remove,]
+  oxybottom_overlap = read.csv(paste(basedir, "oxygen_bottom_", model,"_overlap.csv", sep=""), header = TRUE, sep =',')
+  #oxybottom_overlap = oxybottom_overlap[-remove,]
+  
+  pHsurf_overlap = read.csv(paste(basedir, "ph_surface_", model,"_overlap.csv", sep=""), header = TRUE, sep =',')
+  #pHsurf_overlap = pHsurf_overlap[-remove,]
+  pHbot_overlap = read.csv(paste(basedir, "ph_bottom_", model,"_overlap.csv", sep=""), header = TRUE, sep =',')
+  #pHbot_overlap = pHbot_overlap[-remove,]
+  
+  tempsurf_overlap = read.csv(paste(basedir, "temp_surface_", model,"_overlap.csv", sep=""), header = TRUE, sep =',')
+  #tempsurf_overlap = tempsurf_overlap[-remove,]
+  tempbot_overlap = read.csv(paste(basedir, "temp_bottom_", model,"_overlap.csv", sep=""), header = TRUE, sep =',')
+  #tempbot_overlap = tempbot_overlap[-remove,]
+
+  # go through the 3 models and find exposure for each using a variety of different ways of combining climate factors and pulling bottom variables for certain species and surface variables for other species 
+  chlexp = rep(NA, length = nrow(species_info))
+  tempexp = rep(NA, length = nrow(species_info))
+  pHexp = rep(NA, length = nrow(species_info))
+  oxyexp = rep(NA, length = nrow(species_info))
+  oxyexpbot = rep(NA, length = nrow(species_info))
+  #oxyexp2 = rep(NA, length = nrow(species_info))
+  chlexp75 = rep(NA, length = nrow(species_info))
+  tempexp75 = rep(NA, length = nrow(species_info))
+  pHexp75 = rep(NA, length = nrow(species_info))
+  oxyexp75 = rep(NA, length = nrow(species_info))
+  oxyexp75bot = rep(NA, length = nrow(species_info))
+  pelagicspecies = vector()
+  benthicspecies = vector()
+  for(i in 1:nrow(species_info)) {
+    speciesname = species_info$nameuse[i]
+    if(species_info$habitat[i] == "benthic") {
+      chlexp[i] = chl50_overlap$overlap_5_95[chl50_overlap$Species_Name == speciesname]
+      tempexp[i] = tempbot_overlap$overlap_5_95[tempbot_overlap$Species_Name == speciesname]
+      pHexp[i] = pHbot_overlap$overlap_5_95[pHbot_overlap$Species_Name == speciesname]
+      oxyexp[i] = oxybottom_overlap$overlap_5_95[oxybottom_overlap$Species_Name ==speciesname] # use bottom for final exposure
+     oxyexpbot[i] =  oxybottom_overlap$overlap_5_95[oxybottom_overlap$Species_Name ==speciesname]
+       chlexp75[i] = chl50_overlap$overlap_25_75[chl50_overlap$Species_Name == speciesname]
+      tempexp75[i] = tempbot_overlap$overlap_25_75[tempbot_overlap$Species_Name == speciesname]
+      pHexp75[i] = pHbot_overlap$overlap_25_75[pHbot_overlap$Species_Name == speciesname]
+      oxyexp75[i] = oxybottom_overlap$overlap_25_75[oxybottom_overlap$Species_Name ==speciesname]
+      oxyexp75bot[i] = oxybottom_overlap$overlap_25_75[oxybottom_overlap$Species_Name ==speciesname]
+      benthicspecies = c(benthicspecies, i)
+    } else {
+      chlexp[i] = chl50_overlap$overlap_5_95[chl50_overlap$Species_Name == speciesname] #using upper 50 for all
+      tempexp[i] = tempsurf_overlap$overlap_5_95[tempsurf_overlap$Species_Name == speciesname]
+      pHexp[i] = pHsurf_overlap$overlap_5_95[pHsurf_overlap$Species_Name == speciesname]
+      oxyexp[i] = oxy3.5_overlap$overlap_5_95[oxy3.5_overlap$Species_Name ==speciesname] #was using 3.5 for benthic and 2.0 for pelagic, but pelagic all had higher risk, what if use the same for both?
+      #oxyexp2[i] = oxy3.5_overlap$overlap_5_95[oxy3.5_overlap$Species_Name ==speciesname]
+        chlexp75[i] = chl50_overlap$overlap_25_75[chl50_overlap$Species_Name == speciesname]
+      tempexp75[i] = tempsurf_overlap$overlap_25_75[tempsurf_overlap$Species_Name == speciesname]
+      pHexp75[i] = pHsurf_overlap$overlap_25_75[pHsurf_overlap$Species_Name == speciesname]
+      oxyexp75[i] = oxy3.5_overlap$overlap_25_75[oxy3.5_overlap$Species_Name ==speciesname] #3.5 or 2.0
+      pelagicspecies = c(pelagicspecies, i)
+    }
+  }
+  
+  #benthicspecies = benthicspecies[-which(benthicspecies == 41)]
+  #pelagicspecies = pelagicspecies[-which(pelagicspecies == 48)]
+  
+  # if you compare histograms of benthic species exposures to pelagic species exposures, they do give similar ranges, even if you use bottom oxy concentration for benthic and depth of the oxygen threshold for pelagics
+  
+  plot(rank(1/oxyexp[benthicspecies]), rank(1/oxyexpbot[benthicspecies]))
+  plot(rank(1/oxyexp75[benthicspecies]), rank(1/oxyexp75bot[benthicspecies]))
+ # par(mfrow = c(2,1)); hist(pHexp75[pelagicspecies]); hist(pHexp75[benthicspecies])
+  # think that greater overlap = less exposure. So need to inverse 1/ exp
+ # weak signal to noise except for pH. All others are just 0s vs. 100
+  # par(mfrow = c(2,2))
+  # hist(1/pHexp75[-41]); hist(1/chlexp75[-41]); hist(1/oxyexp75[-41]); hist(1/tempexp75[-41])
+  # hist(range01(1/pHexp[-41])); hist(range01(1/chlexp[-41])); hist(range01(1/oxyexp[-41])); hist(range01(1/tempexp[-41])) #vs log10. pretty similar
+  # hist(1/pHexp75[-41]); hist(1/chlexp75[-41]); hist(1/oxyexp75[-41]); hist(1/tempexp75[-41])
+  print(log10(100-pHexp))
+  print(range01(log10(100-pHexp)) )
+  scaled1 = cbind(log10(100-pHexp),log10(100-chlexp), log10(100-oxyexp), log10(100-tempexp)); print(scaled1)
+  templist$log_avgExp = rowMeans(scaled1)
+  templist$pHexp_scale = range01(log10(100-pHexp)) # log10(pHexp[-41]) # 100 not 1, percents not decimals
+  templist$chlexp_scale = range01(log10(100-chlexp)) # log10(chlexp[-41])
+  templist$oxyexp_scale = range01(log10(100-oxyexp)) # log10(oxyexp[-41])
+  templist$tempexp_scale = range01(log10(100-tempexp)) # log10(tempexp[-41])
+   templist$pHexp_scale75 = range01(log10(100-pHexp75)) # log10(pHexp[-41])
+  templist$chlexp_scale75 = range01(log10(100-chlexp75)) # log10(chlexp[-41])
+  templist$oxyexp_scale75 = range01(log10(100-oxyexp75)) # log10(oxyexp[-41])
+  templist$tempexp_scale75 = range01(log10(100-tempexp75))
+  ##### COMBINED EXPOSURE ########
+  templist$euc_exp = sqrt(templist$pHexp_scale^2 + templist$chlexp_scale^2 + templist$oxyexp_scale^2 + templist$tempexp_scale^2)
+  
+  templist$avg_exp = rowMeans(cbind(templist$pHexp_scale, templist$chlexp_scale, templist$oxyexp_scale, templist$tempexp_scale))
+  templist$avgexp_nooxy = rowMeans(cbind(templist$pHexp_scale, templist$chlexp_scale, templist$tempexp_scale))
+  templist$avgexp_notemp = rowMeans(cbind(templist$pHexp_scale, templist$chlexp_scale, templist$oxyexp_scale))
+  templist$avgexp_nopH = rowMeans(cbind( templist$chlexp_scale, templist$oxyexp_scale, templist$tempexp_scale))
+  templist$avgexp_nochl = rowMeans(cbind(templist$pHexp_scale, templist$oxyexp_scale, templist$tempexp_scale))
+  
+  templist$avg_exp75 = rowMeans(cbind(templist$pHexp_scale75, templist$chlexp_scale75, templist$oxyexp_scale75, templist$tempexp_scale75))
+  climatepca = prcomp(cbind(templist$oxyexp_scale, templist$pHexp_scale, templist$tempexp_scale, templist$chlexp_scale))
+  templist$pca_exp = climatepca$x
+  templist$sum_exp = rowSums(cbind(templist$pHexp_scale, templist$chlexp_scale, templist$oxyexp_scale, templist$tempexp_scale))
+  templist$add_exp = templist$pHexp_scale + templist$chlexp_scale + templist$oxyexp_scale + templist$tempexp_scale
+  templist$avgexp_nooxy = rowMeans(cbind(templist$pHexp_scale, templist$chlexp_scale, templist$tempexp_scale))
+  templist$avgexp_tempchl = rowMeans(cbind(templist$chlexp_scale, templist$tempexp_scale))
+  
+fviz_pca_biplot(climatepca, repel = TRUE,
+                col.var = "#2E9FDF", # Variables color
+                col.ind = "#696969"  # Individuals color
+                )
+  return(assign(listname, templist))
+  
+}
+
+gfdlexp = calc_species_exposure(model = model[1], remove = remove, species_info = species_info, basedir ="2030-2060/overlap/")
+hadexp = calc_species_exposure(model = model[2], remove = remove, species_info = species_info, basedir= "2030-2060/overlap/")
+ipslexp = calc_species_exposure(model = model[3], remove = remove, species_info = species_info, basedir = "2030-2060/overlap/")
+gfdlexp2080 = calc_species_exposure(model = model[1], remove = remove, species_info = species_info, basedir ="2050-2080/overlap/")
+hadexp2080 = calc_species_exposure(model = model[2], remove = remove, species_info = species_info, basedir= "2050-2080/overlap/")
+ipslexp2080 = calc_species_exposure(model = model[3], remove = remove, species_info = species_info, basedir = "2050-2080/overlap/")
+
+avgexp = (rowMeans(cbind(ipslexp$avg_exp,gfdlexp$avg_exp,hadexp$avg_exp)))
+
+
+
+plot(gfdlexp$avg_exp, gfdlexp$avg_exp75)
+plot(rank(gfdlexp$avg_exp), rank(gfdlexp$avg_exp75)) #less correlated if you use 3.5 oxy cut-off vs. 2.0?
+plot(rank(hadexp$avg_exp), rank(hadexp$avg_exp75))
+plot(rank(ipslexp$avg_exp), rank(ipslexp$avg_exp75)) # really not correlated...
+par(mfrow = c(2,2))
+plot(rank(gfdlexp$tempexp_scale), rank(gfdlexp$tempexp_scale75))
+plot(rank(gfdlexp$chlexp_scale), rank(gfdlexp$chlexp_scale75))
+plot(rank(gfdlexp$pHexp_scale), rank(gfdlexp$pHexp_scale75))
+plot(rank(gfdlexp$oxyexp_scale), rank(gfdlexp$oxyexp_scale75))
+# all somewhat correlated, temperature most so
+par(mfrow = c(2,2))
+plot(rank(hadexp$tempexp_scale), rank(hadexp$tempexp_scale75))
+plot(rank(hadexp$chlexp_scale), rank(hadexp$chlexp_scale75))
+plot(rank(hadexp$pHexp_scale), rank(hadexp$pHexp_scale75))
+plot(rank(hadexp$oxyexp_scale), rank(hadexp$oxyexp_scale75))
+#chl and pH least correlated
+
+par(mfrow = c(2,2))
+plot(rank(ipslexp$tempexp_scale), rank(ipslexp$tempexp_scale75))
+plot(rank(ipslexp$chlexp_scale), rank(ipslexp$chlexp_scale75))
+plot(rank(ipslexp$pHexp_scale), rank(ipslexp$pHexp_scale75))
+plot(rank(ipslexp$oxyexp_scale), rank(ipslexp$oxyexp_scale75))
+# mainly chl and oxy not correlated
+
+# correlations not really helped by oxy 2.0 cut-off vs. 3.5 cut-off
+
+#gfdlexp = templist
+
+# all correlations over 0.75, use 5-95
+
+# Questions:
+# how to use both 2.0 depth cutoff and 3.5 cutoff? just compare?
+# OK to compare values between surface vs. bottom? seems like same ranges
+# which CHL ?
+# 5 to 95 or 25-75? was thinking 5-95 but sensitivity was calculated by Jameal as the 25-75 breadth
+# ways to combine the diff. climate factors
+#scale differently for the ones that are just 0s and 100s?
+
+
+
+
+```
+
+```{r}
+#SPECIES SENSITIVITY
+basedir = "2030-2060/percentiles/"
+model = c("gfdl", "had", "ipsl")
+chlsurface_percent = read.csv(paste(basedir, "chl_surface_", model[1],"_percentiles.csv", sep=""), header = TRUE, sep =',')
+
+which(chlsurface_percent$Species_Name %!in% species_list$nameuse)
+remove = which(chlsurface_percent$Species_Name %!in% species_list$nameuse)
+
+range01 <- function(x){(x-min(x))/(max(x)-min(x))} 
+
+library(dplyr)
+species_info = species_list %>% select(nameuse, habitat)
+
+# to test
+#species_info = species_info[-68,] # don't run normally 
+
+#model = 'gfdl'
+calc_species_sensitivity <- function(model, remove = remove, species_info = species_info, basedir = basedir) {
+  listname = paste(model,"sensitivity",sep = "_")
+  templist = list()
+
+  
+  chlsurface_percent = read.csv(paste(basedir, "chl_surface_", model,"_percentiles.csv", sep=""), header = TRUE, sep = ',')
+  #chlsurface_percent = chlsurface_overlap[-remove,]
+
+  chl50_percent = read.csv(paste(basedir, "chl_50m_", model,"_percentiles.csv", sep=""), header = TRUE, sep =',')
+  #chl50_percent = chl50_overlap[-remove,]
+  
+  oxy2.0_percent = read.csv(paste(basedir, "depth_oxygen_2.0_", model,"_percentiles.csv", sep=""), header = TRUE, sep =',')
+  #oxy2.0_percent = oxy2.0_overlap[-remove,]
+  oxy3.5_percent = read.csv(paste(basedir, "depth_oxygen_3.5_", model,"_percentiles.csv", sep=""), header = TRUE, sep =',')
+  #oxy3.5_percent = oxy3.5_overlap[-remove,]
+  oxybottom_percent = read.csv(paste(basedir, "oxygen_bottom_", model,"_percentiles.csv", sep=""), header = TRUE, sep =',')
+  #oxybottom_overlap = oxybottom_overlap[-remove,]
+  
+  pHsurf_percent = read.csv(paste(basedir, "ph_surface_", model,"_percentiles.csv", sep=""), header = TRUE, sep =',')
+  #pHsurf_overlap = pHsurf_overlap[-remove,]
+  pHbot_percent = read.csv(paste(basedir, "ph_bottom_", model,"_percentiles.csv", sep=""), header = TRUE, sep =',')
+  #pHbot_overlap = pHbot_overlap[-remove,]
+  
+  tempsurf_percent = read.csv(paste(basedir, "temp_surface_", model,"_percentiles.csv", sep=""), header = TRUE, sep =',')
+  #tempsurf_overlap = tempsurf_overlap[-remove,]
+  tempbot_percent = read.csv(paste(basedir, "temp_bottom_", model,"_percentiles.csv", sep=""), header = TRUE, sep =',')
+  #tempbot_overlap = tempbot_overlap[-remove,]
+  
+  # same spread between bottom vs. surface?
+   # hist(1/(pHsurf_percent$hist_75 - pHsurf_percent$hist_25))
+   # hist(1/(pHbot_percent$hist_75 - pHbot_percent$hist_25),
+   #      add = TRUE, col = "red")
+   # hist(1/(tempbot_percent$hist_75 - tempbot_percent$hist_25))
+   # hist(1/(tempsurf_percent$hist_75 - tempsurf_percent$hist25), 
+   #      add = TRUE, col = "red")
+   # hist(1/(oxy2.0_percent$hist_75 - oxy2.0_percent$hist_25))
+   # hist(1/(oxybottom_percent$hist_75 - oxybottom_percent$hist_25),
+   #      add = TRUE, col = 'red')
+   # hist(1/(oxy3.5_percent$hist_75 - oxy3.5_percent$hist_25), 
+   #      add = TRUE, col = 'green')
+   # hist(1/(chl50_percent$hist_75 - chl50_percent$hist_25))
+   # hist(1/(chlsurface_percent$hist_75 - chlsurface_pecent$hist_25), add = TRUE, col = 'red')
+  
+  # go through the 3 models and find exposure for each using a variety of different ways of combining climate factors and pulling bottom variables for certain species and surface variables for other species 
+  chlsens = rep(NA, length = nrow(species_info))
+  tempsens = rep(NA, length = nrow(species_info))
+  pHsens = rep(NA, length = nrow(species_info))
+  oxysens = rep(NA, length = nrow(species_info))
+  oxysensbot = rep(NA, length = nrow(species_info))
+   chlsens75 = rep(NA, length = nrow(species_info))
+  tempsens75 = rep(NA, length = nrow(species_info))
+  pHsens75 = rep(NA, length = nrow(species_info))
+  oxysens75 = rep(NA, length = nrow(species_info))
+  oxysens75bot = rep(NA, length = nrow(species_info))
+  pelagicspecies = vector()
+  benthicspecies = vector()
+  for(i in 1:nrow(species_info)) {
+    speciesname = species_info$nameuse[i]
+    if(species_info$habitat[i] == "benthic") {
+      chlsens75[i] = 1/(chl50_percent$hist_75[chl50_percent$Species_Name == speciesname] - chl50_percent$hist_25[chl50_percent$Species_Name == speciesname])
+      tempsens75[i] = 1/(tempbot_percent$hist_75[tempbot_percent$Species_Name == speciesname] - tempbot_percent$hist_25[tempbot_percent$Species_Name == speciesname])
+      pHsens75[i] =1/(pHbot_percent$hist_75[pHbot_percent$Species_Name == speciesname] - pHbot_percent$hist_25[pHbot_percent$Species_Name == speciesname])
+       oxysens75[i] = 1/(oxybottom_percent$hist_75[oxybottom_percent$Species_Name ==speciesname] - oxybottom_percent$hist_25[oxybottom_percent$Species_Name == speciesname])
+      oxysens75bot[i] = 1/(oxybottom_percent$hist_75[oxybottom_percent$Species_Name ==speciesname] - oxybottom_percent$hist_25[oxybottom_percent$Species_Name == speciesname])
+     chlsens[i] = 1/(chl50_percent$hist_95[chl50_percent$Species_Name == speciesname] - chl50_percent$hist_5[chl50_percent$Species_Name == speciesname])
+      tempsens[i] = 1/(tempbot_percent$hist_95[tempbot_percent$Species_Name == speciesname] - tempbot_percent$hist_5[tempbot_percent$Species_Name == speciesname])
+      pHsens[i] =1/(pHbot_percent$hist_95[pHbot_percent$Species_Name == speciesname] - pHbot_percent$hist_5[pHbot_percent$Species_Name == speciesname])
+      oxysens[i] = 1/(oxybottom_percent$hist_95[oxybottom_percent$Species_Name ==speciesname] - oxybottom_percent$hist_5[oxybottom_percent$Species_Name == speciesname]) # use bottom oxygen 
+       oxysensbot[i] = 1/(oxybottom_percent$hist_95[oxybottom_percent$Species_Name ==speciesname] - oxybottom_percent$hist_5[oxybottom_percent$Species_Name == speciesname])
+      benthicspecies = c(benthicspecies, i)
+    } else {
+      chlsens75[i] = 1/(chl50_percent$hist_75[chl50_percent$Species_Name == speciesname] - chl50_percent$hist_25[chl50_percent$Species_Name == speciesname]) #allchl 50 not surface
+      tempsens75[i] = 1/(tempsurf_percent$hist_75[tempsurf_percent$Species_Name == speciesname] - tempsurf_percent$hist_25[tempsurf_percent$Species_Name == speciesname])
+      pHsens75[i] =1/(pHsurf_percent$hist_75[pHsurf_percent$Species_Name == speciesname] - pHsurf_percent$hist_25[pHsurf_percent$Species_Name == speciesname])
+      oxysens75[i] = 1/(oxy3.5_percent$hist_75[oxy3.5_percent$Species_Name ==speciesname] - oxy3.5_percent$hist_25[oxy3.5_percent$Species_Name == speciesname])
+       chlsens[i] = 1/(chl50_percent$hist_95[chl50_percent$Species_Name == speciesname] - chl50_percent$hist_5[chl50_percent$Species_Name == speciesname]) #allchl 50 not surface
+      tempsens[i] = 1/(tempsurf_percent$hist_95[tempsurf_percent$Species_Name == speciesname] - tempsurf_percent$hist_5[tempsurf_percent$Species_Name == speciesname])
+      pHsens[i] =1/(pHsurf_percent$hist_95[pHsurf_percent$Species_Name == speciesname] - pHsurf_percent$hist_5[pHsurf_percent$Species_Name == speciesname])
+      oxysens[i] = 1/(oxy3.5_percent$hist_95[oxy3.5_percent$Species_Name ==speciesname] - oxy3.5_percent$hist_5[oxy3.5_percent$Species_Name == speciesname])
+      pelagicspecies = c(pelagicspecies, i)
+    }
+  }
+  #benthicspecies = benthicspecies[-which(benthicspecies == 41)]
+  #pelagicspecies = pelagicspecies[-which(pelagicspecies == 48)]
+  #ranges of sensitivity values are similar for pelagic and benthic species even if you use oxygen concentrations for benthic species and oxygen depth for pelagic
+  # plot(rank(oxysens75bot[benthicspecies]), rank(oxysens75[benthicspecies]))
+  # plot(rank(oxysensbot[benthicspecies]), rank(oxysens[benthicspecies]))
+  # par(mfrow= c(2,1)); hist(tempsens[benthicspecies]); hist(tempsens[pelagicspecies])
+  # hist(tempsens[-41])
+  # hist(pHsens[-41])
+  # hist(chlsens[-41])
+  # hist(oxysens[-41])
+  scaled1 = cbind(log10(pHsens), log10(chlsens), log10(oxysens), log10(tempsens)); print(scaled1)
+  templist$log_avgsens = rowMeans(scaled1)
+  templist$pHsens_scale = range01(log10(pHsens)) #log10(pHsens[-41])
+  templist$chlsens_scale = range01(log10(chlsens)) # log10(chlsens[-41])
+  templist$oxysens_scale = range01(log10(oxysens)) # log10(oxysens[-41])
+  templist$tempsens_scale = range01(log10(tempsens)) # log10(tempsens[-41])
+  templist$pHsens_scale75 = range01(log10(pHsens75)) #log10(pHsens[-41])
+  templist$chlsens_scale75 = range01(log10(chlsens75)) # log10(chlsens[-41])
+  templist$oxysens_scale75 = range01(log10(oxysens75)) # log10(oxysens[-41])
+  templist$tempsens_scale75 = range01(log10(tempsens75))
+  
+  ##### COMBINED SENSITIVITY ########
+  templist$euc_sens = sqrt(templist$pHsens_scale^2 + templist$chlsens_scale^2 + templist$oxysens_scale^2 + templist$tempsens_scale^2)
+  
+    templist$avg_sens = rowMeans(cbind(templist$pHsens_scale, templist$chlsens_scale, templist$oxysens_scale, templist$tempsens_scale))
+    templist$avgsens_nooxy = rowMeans(cbind(templist$pHsens_scale, templist$chlsens_scale,  templist$tempsens_scale))
+    templist$avgsens_notemp = rowMeans(cbind(templist$pHsens_scale, templist$chlsens_scale, templist$oxysens_scale))
+    templist$avgsens_nopH = rowMeans(cbind(templist$chlsens_scale, templist$oxysens_scale, templist$tempsens_scale))
+    templist$avgsens_nochl = rowMeans(cbind(templist$pHsens_scale, templist$oxysens_scale, templist$tempsens_scale))
+    
+      templist$avg_sens75 = rowMeans(cbind(templist$pHsens_scale75, templist$chlsens_scale75, templist$oxysens_scale75, templist$tempsens_scale75))
+     climatepca = prcomp(cbind(templist$oxysens_scale, templist$pHsens_scale, templist$tempsens_scale, templist$chlsens_scale))
+  templist$pca_sens = climatepca$x
+  templist$sum_sens = rowSums(cbind(templist$pHsens_scale, templist$chlsens_scale, templist$oxysens_scale, templist$tempsens_scale))
+  templist$add_sens = templist$pHsens_scale+ templist$chlsens_scale+ templist$oxysens_scale+ templist$tempsens_scale
+   
+    templist$avgsens_tempchl = rowMeans(cbind(templist$chlsens_scale,templist$tempsens_scale))
+  
+  return(assign(listname, templist))
+  
+}
+
+gfdlsens = calc_species_sensitivity(model = model[1], remove = remove, species_info = species_info, basedir = "2030-2060/percentiles/")
+hadsens = calc_species_sensitivity(model = model[2], remove = remove, species_info = species_info, basedir = "2030-2060/percentiles/")
+ipslsens = calc_species_sensitivity(model = model[3], remove = remove, species_info = species_info, basedir = "2030-2060/percentiles/")
+
+gfdlsens2080 = calc_species_sensitivity(model = model[1], remove = remove, species_info = species_info, basedir = "2050-2080/percentiles/")
+hadsens2080 = calc_species_sensitivity(model = model[2], remove = remove, species_info = species_info, basedir = "2050-2080/percentiles/")
+ipslsens2080 = calc_species_sensitivity(model = model[3], remove = remove, species_info = species_info, basedir = "2050-2080/percentiles/")
+
+plot(gfdlsens$avg_sens, ipslsens$avg_sens) # and other combos - super correlated
+# exp not super correlated
+
+```
+
+COULD: NEW EXPOSURE CALCULATION - overlap in interquartiles range - quantifying exposure as the change in overlap between the future interquartile and historical interquartiles
+
+Standardize and combine
+Note - some species you want bottom temp, some you want SST 
+```{r}
+perc.rank<- function(x) round(ifelse(is.na(x),NA,rank(x)/sum(!is.na(x))),9)
+
+calc_species_risk <- function(sens = sens, exp = exp) {
+  ranksens = (sens)#perc.rank(sens) #should already be scaled 
+  rankexps = (exp) #perc.rank(exp) # percentile ranking changes rank order for species with similar values after the euclidean distance calculation because percentile ranking changes how far apart values are. Especially occurs if one, either exp or sens is > and the other is < in comparing 2 
+  risk = sqrt((ranksens-min(ranksens))^2 + (rankexps-min(rankexps))^2)
+  # percentile rank later when calculating community exposure 
+  #returnname = paste(model,"risk",sep = "_")
+  return(risk)
+}
+
+
+gfdlrisk = calc_species_risk(sens = gfdlsens$avg_sens, exp = gfdlexp$avg_exp)
+gfdlrisk2 = calc_species_risk(sens = gfdlsens$avg_sens, exp = gfdlexp$avg_exp)
+# gfdlrisk_nopercent = sqrt((gfdlsens$avg_sens-min(gfdlsens$avg_sens))^2 + (gfdlexp$avg_exp-min(gfdlexp$avg_exp))^2)
+ gfdlriskeuc = calc_species_risk(sens = gfdlsens$euc_sens, exp = gfdlexp$euc_exp)
+# gfdlrisk3 = calc_species_risk(sens = gfdlsens$add_sens, exp = gfdlexp$add_exp)
+# gfdlrisktemp = calc_species_risk(sens = gfdlsens$tempsens_scale, exp = gfdlexp$tempexp_scale)
+# gfdlriskchl = calc_species_risk(sens = gfdlsens$chlsens_scale, exp = gfdlexp$chlexp_scale)
+# gfdlriskpH = calc_species_risk(sens = gfdlsens$pHsens_scale, exp = gfdlexp$pHexp_scale)
+# gfdlriskoxy = calc_species_risk(sens = gfdlsens$oxysens_scale, exp = gfdlexp$oxyexp_scale)
+# gfdlriskpca = calc_species_risk(sens = gfdlsens$pca_sens[,1], exp = gfdlexp$pca_exp[,1])
+# gfdlrisk2var = calc_species_risk(sens = gfdlsens$avgsens_tempchl, exp = gfdlexp$avgexp_tempchl)
+hadrisk = calc_species_risk(sens = hadsens$avg_sens, exp = hadexp$avg_exp)
+ipslrisk = calc_species_risk(sens = ipslsens$avg_sens, exp = ipslexp$avg_exp)
+hadrisk2 = calc_species_risk(sens = hadsens$avg_sens, exp = hadexp$avg_exp)
+ipslrisk2 = calc_species_risk(sens = ipslsens$avg_sens, exp = ipslexp$avg_exp)
+# gfdlrisk75 = calc_species_risk(sens = gfdlsens$avg_sens75, exp = gfdlexp$avg_exp75)
+# gfdlrisk2080 = calc_species_risk(sens = gfdlsens2080$avg_sens, exp = gfdlexp2080$avg_exp)
+# ipslrisk2080 = calc_species_risk(sens = ipslsens2080$avg_sens, exp = ipslexp2080$avg_exp)
+# hadrisk2080 = calc_species_risk(sens = hadsens2080$avg_sens, exp = hadexp2080$avg_exp)
+# gfdlrisk_tempchl = calc_species_risk(sens = gfdlsens$avgsens_tempchl, exp = gfdlexp$avgexp_tempchl)
+
+hadriskeuc = calc_species_risk(sens = hadsens$euc_sens, exp = hadexp$euc_exp)
+ipslriskeuc = calc_species_risk(sens = ipslsens$euc_sens, exp = ipslexp$euc_exp)
+#hadrisk75 = calc_species_risk(sens = hadsens$avg_sens75, exp = hadexp$avg_exp75)
+#ipslrisk75 = calc_species_risk(sens = ipslsens$avg_sens75, exp = ipslexp$avg_exp75)
+
+avgrisk = data.frame(gfdlrisk, hadrisk, ipslrisk)
+avgrisk_all = rowMeans(avgrisk)
+plot(avgrisk_all, avgexp)
+risk1 = ggplot(avgrisk, aes(x = rank(gfdlrisk), y = rank(hadrisk))) + geom_point() +
+  annotate("text", x = 0, y = 65, label = round(cor(rank(gfdlrisk), rank(hadrisk)), digits = 3), color = "red") + xlab("GFDL") + ylab("HAD")
+risk2 = ggplot(avgrisk, aes(x = rank(ipslrisk), y = rank(hadrisk))) + geom_point() +
+  annotate("text", x = 0, y = 65, label = round(cor(rank(ipslrisk), rank(hadrisk)), digits = 3), color = "red") + xlab("IPSL") + ylab("HAD")
+risk3 = ggplot(avgrisk, aes(x = rank(gfdlrisk), y = rank(ipslrisk))) + geom_point() +
+  annotate("text", x = 0, y = 65, label = round(cor(rank(gfdlrisk), rank(ipslrisk)), digits = 3), color = "red") +  xlab("GFDL") + ylab("IPSL")
+pdf("eco_vuln_correlation.pdf", width = 10, height = 8)
+ggarrange(risk1, risk2, risk3)
+dev.off()
+
+riskframe = data.frame(species_list$Common.name, species_info$nameuse, ipslrisk, hadrisk, gfdlrisk, ipslriskeuc, hadriskeuc, gfdlriskeuc, rowMeans(cbind(ipslrisk, hadrisk, gfdlrisk)),rowMeans(cbind(ipslrisk2, hadrisk2, gfdlrisk2)) , rowMeans(cbind(range01(ipslrisk), range01(hadrisk), range01(gfdlrisk))) )
+names(riskframe) = c("common_name","name", "ipsl", "had", "gfdl", "ipsleuc", "hadeuc","gfdleuc", "avgrisk", "avgriskrank", "scaleavg")
+plot(rank(riskframe$ipsl), rank(riskframe$had))
+text(rank(riskframe$ipsl), rank(riskframe$had), labels = riskframe$name)
+
+speciesspid = read.csv("species_code_noduplicates.csv", header = TRUE)
+speciesspid$gfdlrisk = rep(NA, length = nrow(speciesspid))
+speciesspid$hadrisk = rep(NA, length = nrow(speciesspid))
+speciesspid$ipslrisk = rep(NA, length = nrow(speciesspid))
+speciesspid$gfdlriskeuc = rep(NA, length = nrow(speciesspid))
+ speciesspid$hadriskeuc = rep(NA, length = nrow(speciesspid))
+ speciesspid$ipslriskeuc = rep(NA, length = nrow(speciesspid))
+ speciesspid$avgrisk = rep(NA, length = nrow(speciesspid))
+ speciesspid$scaledrisk = rep(NA, length = nrow(speciesspid))
+ speciesspid$scaledrisk2 = rep(NA, length = nrow(speciesspid))
+  speciesspid$scaledavg = rep(NA, length = nrow(speciesspid))
+riskframe$common_name[6] = "Black-and-yellow rockfish"
+riskframe$scaledrisk = range01(riskframe$avgrisk)
+
+for(j in 1:nrow(speciesspid)) {
+  nametemp = speciesspid$species_risk_use[j]
+  if(tolower(nametemp) %in% tolower(riskframe$common_name)) {
+    index = which(tolower(riskframe$common_name) %in% tolower(nametemp))
+    speciesspid$gfdlrisk[j] = riskframe$gfdl[index] 
+    speciesspid$hadrisk[j] = riskframe$had[index]
+    speciesspid$ipslrisk[j] = riskframe$ipsl[index]
+     speciesspid$gfdlriskeuc[j] = riskframe$gfdleuc[index] 
+    speciesspid$hadriskeuc[j] = riskframe$hadeuc[index]
+    speciesspid$ipslriskeuc[j] = riskframe$ipsleuc[index]
+    speciesspid$avgrisk[j] = riskframe$avgrisk[index]
+    speciesspid$scaledrisk[j] = riskframe$scaledrisk[index]
+    #speciesspid$scaledrisk2[j] = riskframe$avgriskrank[index]
+    speciesspid$scaledavg[j] = riskframe$scaleavg[index]
+  } else {
+    speciesspid$gfdlrisk[j] = NA
+    speciesspid$hadrisk[j] = NA
+    speciesspid$ipslrisk[j] = NA
+      speciesspid$gfdlriskeuc[j] = NA
+    speciesspid$hadriskeuc[j] = NA
+    speciesspid$ipslriskeuc[j] = NA
+    speciesspid$avgrisk[j] = NA
+    speciesspid$scaledrisk[j] = NA
+#speciesspid$scaledrisk2[j] = NA
+speciesspid$scaledavg[j] = NA
+  }
+}
+
+extra = speciesspid$species_risk_use[which(is.na(speciesspid$gfdlrisk))]
+extra = extra[-c(1,3,4,5,6,7,10,13,16)] # remove blue rockfish, grass rockfish, misc. fish, all "other", spotted prawn, all flat, yellowtail amberjack
+ 
+for(i in 1:length(extra)){
+  index = which(speciesspid$species_risk_use == extra[i])
+  name = as.character(extra[i])
+  multispecies = strsplit(name, "; ")
+  multispeciesrisk = matrix(NA, nrow = length(multispecies[[1]]), ncol = 10)
+  for(k in 1:length(multispecies[[1]])) {
+    name2 = multispecies[[1]][k]
+    index2 = which(tolower(riskframe$common_name) == tolower(name2))
+    multispeciesrisk[k,1] = riskframe$gfdl[index2] 
+    multispeciesrisk[k,2] = riskframe$had[index2] 
+    multispeciesrisk[k,3] = riskframe$ipsl[index2] 
+     multispeciesrisk[k,4] = riskframe$gfdleuc[index2] 
+    multispeciesrisk[k,5] = riskframe$hadeuc[index2] 
+    multispeciesrisk[k,6] = riskframe$ipsleuc[index2] 
+    multispeciesrisk[k,7] = riskframe$avgrisk[index2] 
+     multispeciesrisk[k,8] = riskframe$scaledrisk[index2] 
+  multispeciesrisk[k,9] = riskframe$avgriskrank[index2] 
+    multispeciesrisk[k,10] = riskframe$scaleavg[index2]
+  }
+  speciesspid$gfdlrisk[index] = mean(multispeciesrisk[,1])
+  speciesspid$hadrisk[index] = mean(multispeciesrisk[,2])
+  speciesspid$ipslrisk[index] = mean(multispeciesrisk[,3])
+  speciesspid$gfdlriskeuc[index] = mean(multispeciesrisk[,4])
+  speciesspid$hadriskeuc[index] = mean(multispeciesrisk[,5])
+  speciesspid$ipslriskeuc[index] = mean(multispeciesrisk[,6])
+  speciesspid$avgrisk[index] = mean(multispeciesrisk[,7])
+    speciesspid$scaledrisk[index] = mean(multispeciesrisk[,8])
+    #speciesspid$scaledrisk2[index] = mean(multispeciesrisk[,9])
+    speciesspid$scaledavg[index] = mean(multispeciesrisk[,10])
+
+}
+speciesspid$species_risk_use[which(is.na(speciesspid$gfdlrisk))]
+
+spotprawn = which(speciesspid$species_risk_use == "Spotted prawn")
+# closest to Pacific pink shrimp? or ridgeback prawn?
+#average of the 2?
+# i think pink shrimp since both of family pandilidae
+pinkshrimp = which(speciesspid$species_risk_use == "Pacific pink shrimp")
+speciesspid$gfdlrisk[spotprawn] = speciesspid$gfdlrisk[pinkshrimp]
+speciesspid$hadrisk[spotprawn] = speciesspid$hadrisk[pinkshrimp]
+speciesspid$ipslrisk[spotprawn] = speciesspid$ipslrisk[pinkshrimp]
+speciesspid$gfdlriskeuc[spotprawn] = speciesspid$gfdlriskeuc[pinkshrimp]
+speciesspid$hadriskeuc[spotprawn] = speciesspid$hadriskeuc[pinkshrimp]
+speciesspid$ipslriskeuc[spotprawn] = speciesspid$ipslriskeuc[pinkshrimp]
+speciesspid$avgrisk[spotprawn] = speciesspid$avgrisk[pinkshrimp]
+
+speciesspid$scaledrisk[spotprawn] = speciesspid$scaledrisk[pinkshrimp]
+#speciesspid$scaledrisk2[spotprawn] = speciesspid$scaledrisk2[pinkshrimp]
+speciesspid$scaledavg[spotprawn] = speciesspid$scaledavg[pinkshrimp]
+
+
+# NOTE scaledrisk2 not calculated correctly here so removed but see 
+# speciesrisk_UPDATED_12.13.csv for all correct
+# scaledrisk2 is not used in final calculations and not needed, was for testing
+write.csv(speciesspid, "speciesrisk_UPDATED_12.13_TEST.csv") #spot prawn was wrong, fixed 5.11.2020
+# Don't have amberjack (removed) - remove from landings
+# On June 11, for any species not in final landings data, NA is given for risk
+
+```
+
+Table
+```{r}
+install.packages("formattable")
+library(formattable)
+tableframe = data.frame(tolower(species_list$Common.name), species_list$Scientific.name, gfdlexp$avg_exp, gfdlsens$avg_sens, gfdlrisk, ipslexp$avg_exp, ipslsens$avg_sens, ipslrisk, hadexp$avg_exp, hadsens$avg_sens, hadrisk,  rowMeans(cbind(ipslrisk, hadrisk, gfdlrisk)))
+names(tableframe) = c("Species Name", "Scientic Name", "GFDL Exp", "GFDL Sens", "GFDL Risk", "IPSL Exp", "IPSL Sens", "IPSL Risk", "HAD Exp", "HAD Sens", "HAD Risk", "Average Risk")
+
+# makes font white if you use a dark theme
+table = formattable(tableframe, list(
+  `Species Name` = formatter("span", style = ~ style(color = "grey", font.weight = "bold"), width = '250%'),
+  `Scientific Name` = formatter("span", style = ~ style(color = "grey", font.weight = "bold"), width = '250%'),
+  "GFDL Exp" = color_tile("white", "grey55"),
+    "GFDL Sens" = color_tile("white", "grey55"),
+  "GFDL Risk" = color_tile("white", "grey55"),
+    "IPSL Exp" = color_tile("white", "grey55"),
+    "IPSL Sens" = color_tile("white", "grey55"),
+  "IPSL Risk" = color_tile("white", "grey55"),
+  "HAD Exp" = color_tile("white", "grey55"),
+  "HAD Sens" = color_tile("white", "grey55"),
+  "HAD Risk" = color_tile("white", "grey55"),
+  "Average Risk" = color_tile("white", "grey55")
+))
+library(xlsx)
+write.xlsx(table, "speciesrisk_updated7_21.xlsx")
+
+
+tableframe2 = data.frame(tolower(species_list$Common.name[-c(41,48)]), species_list$Scientific.name[-c(41,48)], rowMeans(cbind(ipslexp$tempexp_scale, hadexp$tempexp_scale, gfdlexp$tempexp_scale)), rowMeans(cbind(ipslsens$tempsens_scale, hadsens$tempsens_scale, ipslsens$tempsens_scale)), rowMeans(cbind(ipslexp$chlexp_scale, hadexp$chlexp_scale, gfdlexp$chlexp_scale)), rowMeans(cbind(ipslsens$chlsens_scale, hadsens$chlsens_scale, ipslsens$chlsens_scale)),  rowMeans(cbind(ipslexp$oxyexp_scale, hadexp$oxyexp_scale, gfdlexp$oxyexp_scale)), rowMeans(cbind(ipslsens$oxysens_scale, hadsens$oxysens_scale, ipslsens$oxysens_scale)),  rowMeans(cbind(ipslexp$pHexp_scale, hadexp$pHexp_scale, gfdlexp$pHexp_scale)), rowMeans(cbind(ipslsens$pHsens_scale, hadsens$pHsens_scale, ipslsens$pHsens_scale)))
+names(tableframe2) = c("Species Name", "Scientic Name", "Avg Temp Exp", "Avg Temp Sens", "Avg Chl Exp", "Avg Chl Sens", "Avg Oxy Exp", "Avg Oxy Sens", "Avg pH Exp", "Avg pH Sens")
+write.xlsx(tableframe2, "speciesrisk_climatefactors.xlsx")
+```
+
+Figure 2 plot
+```{r}
+library(matrixStats)
+species = species_list$Common.name
+
+avgsens = (rowMeans(cbind(ipslsens$avg_sens,gfdlsens$avg_sens,hadsens$avg_sens)))
+avgexp = (rowMeans(cbind(ipslexp$avg_exp,gfdlexp$avg_exp,hadexp$avg_exp)))
+
+expvar = (rowVars(cbind(ipslexp$avg_exp,gfdlexp$avg_exp,hadexp$avg_exp)))
+sensvar = (rowVars(cbind(ipslsens$avg_sens,gfdlsens$avg_sens,hadsens$avg_sens)))
+expsd = (rowSds(cbind(ipslexp$avg_exp,gfdlexp$avg_exp,hadexp$avg_exp)))
+
+levs <- seq(0, 1, length = 30)
+mids <- (head(levs, length(levs) - 1) + tail(levs, length(levs) - 1))/2
+
+maxsens = max(avgsens) 
+maxexp = max(avgexp)
+minsens = min(avgsens) 
+minexp = min(avgexp)
+sensrange <- seq(minsens,maxsens, length.out = 100)
+exprange <- seq(minexp,maxexp, length.out = 100)
+
+riskrange <- expand.grid(x = exprange, y = sensrange)
+
+ranges = data.frame(exprange, sensrange, sqrt((exprange-min(exprange))^2 + (sensrange-min(sensrange))^2))
+colnames(ranges) = c("x", "y", "z")
+xColor <- seq(minexp,maxexp,length.out=100) # scale of color for x and y, 
+yColor <- seq(minsens,maxsens, length.out=100)
+df <- cbind(expand.grid(x=xColor, y=yColor), expand.grid(x=exprange, y=sensrange)) #grid for colors
+colnames(df)<-c("xColor","yColor","x2","y2")
+df$Risk <- sqrt((df$xColor-min(df$xColor))^2+(df$yColor-min(df$yColor))^2) # the color factor for radius
+
+namesuse = species_list$Common.name
+namesuse[34] = "hake"
+library(RColorBrewer)
+library(ggrepel)
+devtools::install_github("thomasp85/scico")
+library(scico)
+cols = scico(9, palette = 'roma')
+#FMPmatrix = data.frame(FMPmatrix)
+speciesriskplot = ggplot() + 
+  xlab("Species Exposure") + ylab("Species Sensitivity") + ggtitle("Species Risk") +
+  geom_raster(data =df, aes(x = x2, y = y2,fill = Risk))+
+  scale_fill_gradientn("",colours =rev(cols),
+                       breaks=c(0, 0.53),labels=c("Low", "High")) +
+  #theme(legend.position="none") +
+  theme(
+    axis.text.x = element_blank(),
+    axis.text.y = element_blank(),
+    axis.ticks = element_blank()) +
+  annotate(geom="text", x = 0.27, y = 0.2, label="Lower",
+           color="black") + 
+  
+  annotate(geom="text", x = 0.27, y = 0.59, label="Higher",
+           color="black") +
+  annotate(geom="text", x = 0.30, y = 0.17, label="Lower",
+           color="black") + 
+  
+  annotate(geom="text", x = 0.63, y = 0.17, label="Higher",
+           color="black") +
+  #theme(legend.position="none") +
+  geom_text_repel(aes(x = avgexp, y = avgsens, size = 1, alpha = 1-expsd), direction = "both", xlim = c(minexp, maxexp), ylim = c(minsens, maxsens),
+                          label = tolower(namesuse), fontface = 'bold', show.legend = FALSE) 
+
+pdf("speciesrisk_tranparencyTEST.pdf", width = 13, height = 9)
+speciesriskplot
+dev.off()
+
+
+```
+
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r pressure, echo=FALSE}
+plot(pressure)
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
