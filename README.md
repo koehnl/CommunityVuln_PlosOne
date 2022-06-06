@@ -18,7 +18,7 @@ and conservation. PLoS One. 2017 May 3;12(5):e0175739.
 https://doi.org/10.1371/journal.pone.0175739 and at the associated git repository
 https://github.com/OHI-Science/IUCN-AquaMaps (and as part of the code to rasterize
 species range data available at the time of publication on github here:
-https://github.com/koehnl/CommunityVuln). Social metric data for calculating adaptive
+https://github.com/koehnl/CommunityVuln_PlosOne). Social metric data for calculating adaptive
 capacity for communities are available through the CDC here:
 https://www.atsdr.cdc.gov/placeandhealth/svi/data_documentation_download.html
 
