@@ -29,3 +29,11 @@ acceptance and publication (DOI here). The underlying physical and biogeochemica
 variables from the downscaled projections are available upon request from authors
 Mike Jacox at NOAA (michael.jacox@noaa.gov) or Jerome Fiechter at UC Santa Cruz
 (fiechter@ucsc.edu).
+
+Confidential vessel-level landings data may be acquired by direct request from the
+Pacific Fisheries Information Network (PacFIN) (https://pacfin.psmfc.org/) or the
+Departments of Fish and Wildlife in California, Oregon, and Washington, subject to a
+non-disclosure agreement. R code to summarize PacFIN data as done for this paper is availabile on this github. 
+
+Values for community reliance (from NOAA California Current Integrated Ecosystem
+Assessment) will be provided in the same Dryad repository at the time of publication.
