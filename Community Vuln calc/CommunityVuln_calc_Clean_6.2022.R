@@ -765,6 +765,7 @@ waspecies_fullname = c("Chum", "Hake", "Chinook", "Sockeye", "Sablefish","Pink",
                        "Cucumber", "Coho", "Arrowtooth", "Geoduck","Steelhead",
                        "Lingcod", "Dungeness","Pink shrimp", "Rex sole",
                        "Yellowtail", "Dover","English sole","Skate","Hagfish","Petrale")
+wacommname_short = str_remove(wa_gg$communityname, ", WA")
 
 plot = ggplot(wa_gg,aes(x=species,y=communityname,fill=as.numeric(value)))+
   geom_tile(colour="grey",size=0.2)+ 
@@ -779,15 +780,15 @@ plot = ggplot(wa_gg,aes(x=species,y=communityname,fill=as.numeric(value)))+
   annotate(geom="text", x=29.2, y=c(1:14), label= "",
            color="red") +
   annotate(geom="text", x=27.9, y=c(1:14), label= round(as.numeric(WAspeciesrandom$Risk), digits = 2),
-           color="red") +
+           color="red", size = 6) +
   annotate(geom="text", x=27.9, y=14.7, label= "Risk",
-           color="red") +
+           color="red", size = 5) +
   annotate(geom="text", x=28, y=15, label = "",
            color="red")
 pdf("Washingtonlandings.pdf", width = 6, height = 4)
 plot + theme(axis.text.x=element_text(angle=50, size=7, vjust = 1, hjust = 1)) +
   scale_x_discrete(
-    labels=waspecies_fullname) + 
+    labels=waspecies_fullname) +   scale_y_discrete(labels=wacommname_short) +
   theme(axis.text.y = element_text(face="bold", color="#993333", 
                                    size=7))# +
 #geom_segment(aes(x = 1, y = 0, xend = 20, yend = 0), arrow = arrow(length = unit(0.5, "cm"))) 
@@ -853,6 +854,7 @@ or_gg$communityname <- factor(or_gg$communityname, c(  "NEHALEM, OR (NHL)"  ,   
                                                        "WINCHESTER BAY, OR (WIN)", "NEWPORT, OR (NEW)"     ,  
                                                        "ASTORIA, OR (AST)"   ,     "PORT ORFORD, OR (ORF)" ,  
                                                        "GOLD BEACH, OR (GLD)" ))
+orcommname_short = str_remove(or_gg$communityname, ", OR")
 
 plotOR = ggplot(or_gg,aes(x=species,y=communityname,fill=as.numeric(value)))+
   geom_tile(colour="grey",size=0.2)+ 
@@ -867,9 +869,9 @@ plotOR = ggplot(or_gg,aes(x=species,y=communityname,fill=as.numeric(value)))+
   annotate(geom="text", x=20.4, y=c(1:13), label= "",
            color="red") +
   annotate(geom="text", x=19.5, y=c(1:13), label= round(as.numeric(ORspeciesrandom$Risk), digits = 2),
-           color="red") +
+           color="red", size = 6) +
   annotate(geom="text", x=19.5, y=13.6, label= "Risk",
-           color="red") +
+           color="red", size = 5) +
   annotate(geom="text", x=19, y=13.9, label = "",
            color="red")
 orspecies_fullname = c( "Hake", "Chinook", "Sablefish", "Kelp greenling", "Albacore","Red urchin",
@@ -880,7 +882,8 @@ orspecies_fullname = c( "Hake", "Chinook", "Sablefish", "Kelp greenling", "Albac
 pdf("Oregonlandings.pdf", width = 6, height = 4)
 plotOR + theme(axis.text.x=element_text(angle=50, size=7, vjust=1, hjust = 1)) +
   scale_x_discrete(
-    labels=orspecies_fullname) + 
+    labels=orspecies_fullname) + scale_y_discrete(
+      labels=orcommname_short) +
   theme(axis.text.y = element_text(face="bold", color="#993333", 
                                    size=7)) #+
 #geom_hline(yintercept = 8.5, linetype = 2)
@@ -961,6 +964,7 @@ ncaspecies_fullname = c("Night+Surf smelt", "Chinook", "Sablefish", "Jacksmelt",
                         "Blackgill rock.", "Brown rock.", "Surf perch (2)","Surf perch (1)", "Bait shrimp (Ghost)", "Mark. squid",
                         "Chilipepper rock.", "Surf perch (3)", "Vermilion", "Cabazon","Lingcod","Shortspine",
                         "Dungeness", "Pink shrimp", "Dover", "Hagfish", "Petrale")
+ncacommname_short = str_remove(nca_gg$communityname, ", CA")
 
 
 NCAplot = ggplot(nca_gg,aes(x=species,y=communityname,fill=as.numeric(value)))+
@@ -976,15 +980,16 @@ NCAplot = ggplot(nca_gg,aes(x=species,y=communityname,fill=as.numeric(value)))+
   annotate(geom="text", x=42, y=c(1:31), label= "",
            color="red") +
   annotate(geom="text", x=40.2, y=c(1:31), label= round(as.numeric(NCAspeciesrandom$Risk), digits = 2),
-           color="red") +
+           color="red", size = 5) +
   annotate(geom="text", x=40.2, y=32, label= "Risk",
-           color="red") +
+           color="red", size = 5) +
   annotate(geom="text", x=39, y=32.5, label = "",
            color="red")
 pdf("N.Californialandings.pdf", width = 6, height = 4)
 NCAplot + theme(axis.text.x=element_text(angle=50, size=7, vjust=1, hjust = 1)) +
   scale_x_discrete(
-    labels=ncaspecies_fullname) + 
+    labels=ncaspecies_fullname) + scale_y_discrete(
+      labels=ncacommname_short) + 
   theme(axis.text.y = element_text(face="bold", color="#993333", 
                                    size=7))# +
 #geom_hline(yintercept = 18.5, linetype = 2)
@@ -1050,6 +1055,9 @@ scaspecies_fullname = c("Sablefish","Bluefin tuna", "Thresher", "Spiny lobster",
                         "Bigeye tuna", "Swordfish", "Longspine", "Mackerel", "Sardine", "Sheephead",
                         "Ridgeback prawn", "CA halbut", "Seabass", "Rockcrab", "Cucumber (2)","Blackgill rock.",
                         "Surf perch (2)", "Mark. squid", "Vermilion", "Sanddab", "Shortspine", "Spotted prawn")
+scacommname_short = str_remove(sca_gg$communityname, ", CA")
+scacommname_short[which(scacommname_short == "SAN BUENAVENTURA (VENTURA) (VEN)")] = "VENTURA (VEN)"
+scacommname_short[which(scacommname_short == "LA CANADA FLINTRIDGE (OLA)")] = "CAN. FLINTRIDGE (OLA)"
 
 SCAplot = ggplot(sca_gg,aes(x=species,y=communityname,fill=as.numeric(value)))+
   geom_tile(colour="grey",size=0.2)+ 
@@ -1064,16 +1072,17 @@ SCAplot = ggplot(sca_gg,aes(x=species,y=communityname,fill=as.numeric(value)))+
   annotate(geom="text", x=26.9, y=c(1:10), label= "",
            color="red") +
   annotate(geom="text", x=25.8, y=c(1:10), label= round(as.numeric(SCAspeciesrandom$Risk), digits = 2),
-           color="red") +
+           color="red", size = 6) +
   annotate(geom="text", x=25.8, y=10.5, label= "Risk",
-           color="red") +
+           color="red", size = 5) +
   annotate(geom="text", x=26.8, y=10.8, label = "",
            color="red")
 
 pdf("S.Californialandings.pdf", width = 6, height = 4)
 SCAplot + theme(axis.text.x=element_text(angle=50, size=7, vjust=1, hjust = 1)) +
   scale_x_discrete(
-    labels=scaspecies_fullname) + 
+    labels=scaspecies_fullname) + scale_y_discrete(
+      labels=scacommname_short) + 
   theme(axis.text.y = element_text(face="bold", color="#993333", 
                                    size=7))# +
 #geom_hline(yintercept = 2.5, linetype = 2)
@@ -1081,44 +1090,69 @@ dev.off()
 
 library(ggpubr)
 riskquant = quantile(risk, 0.9)
-alllandings = ggarrange(
-  plot + theme(axis.text.x=element_text(angle=50, size=7, vjust = 1, hjust = 1 )) +
-    scale_x_discrete(
-      labels=waspecies_fullname) + 
-    theme(axis.text.y = element_text(face="bold", color="#993333", 
-                                     size=7)) +
-    geom_hline(yintercept=8.5, linetype="dashed", color = "darkred", size = 1),
-  # geom_hline(yintercept = 8.5, linetype = 2),
-  plotOR + theme(axis.text.x=element_text(angle=50, size=7, vjust=1, hjust = 1)) +
-    scale_x_discrete(
-      labels=orspecies_fullname) + 
-    theme(axis.text.y = element_text(face="bold", color="#993333", 
-                                     size=7)) +
-    geom_hline(yintercept=9.5, linetype="dashed", color = "darkred", size = 1),
-  #geom_hline(yintercept = 8.5, linetype = 2),
-  NCAplot + theme(axis.text.x=element_text(angle=50, size=7, vjust=1, hjust = 1)) +
-    scale_x_discrete(
-      labels=ncaspecies_fullname) + 
-    theme(axis.text.y = element_text(face="bold", color="#993333", 
-                                     size=7)) +
-    geom_hline(yintercept=26.5, linetype="dashed", color = "darkred", size = 1),
-  # geom_hline(yintercept = 18.5, linetype = 2),
-  SCAplot + theme(axis.text.x=element_text(angle=50, size=7, vjust=1, hjust = 1)) +
-    scale_x_discrete(
-      labels=scaspecies_fullname) + 
-    theme(axis.text.y = element_text(face="bold", color="#993333", 
-                                     size=7)) +
-    geom_hline(yintercept=9.5, linetype="dashed", color = "darkred", size = 1),
-  # geom_hline(yintercept = 2.5, linetype = 2),
-  common.legend = TRUE, legend = "right",
-  nrow = 2, ncol = 2
-)
+p1 = plot + theme(axis.text.x=element_text(angle=50, size=7, vjust = 1, hjust = 1 )) +
+  scale_x_discrete(
+    labels=waspecies_fullname) +  scale_y_discrete(
+      labels=wacommname_short) +
+  theme(axis.text.y = element_text(face="bold", color="#993333", 
+                                   size=12)) +
+  theme(axis.text.x = element_text( color="black", 
+                                    size=12)) +
+  theme(plot.title = element_text(size=22)) +
+  theme(legend.position="none",
+        plot.margin=unit(c(0.5,-0.25,-0.5,0), "cm")) + 
+  geom_hline(yintercept=8.5, linetype="dashed", color = "darkred", size = 1)
+# geom_hline(yintercept = 8.5, linetype = 2),
+p2=  plotOR + theme(axis.text.x=element_text(angle=50, size=7, vjust=1, hjust = 1)) +
+  scale_x_discrete(
+    labels=orspecies_fullname) + scale_y_discrete(
+      labels=orcommname_short) +
+  theme(axis.text.y = element_text(face="bold", color="#993333", 
+                                   size=12)) +
+  theme(axis.text.x = element_text( color="black", 
+                                    size=12)) +
+  theme(plot.title = element_text(size=22)) +
+  theme(legend.position="none",
+        plot.margin=unit(c(0.5,0.5,-0.5,0.25), "cm")) + 
+  geom_hline(yintercept=9.5, linetype="dashed", color = "darkred", size = 1)
+#geom_hline(yintercept = 8.5, linetype = 2),
+p3 =  NCAplot + theme(axis.text.x=element_text(angle=50, size=7, vjust=1, hjust = 1)) +
+  scale_x_discrete(
+    labels=ncaspecies_fullname) + scale_y_discrete(
+      labels=ncacommname_short) +
+  theme(axis.text.y = element_text(face="bold", color="#993333", 
+                                   size=12)) +
+  theme(axis.text.x = element_text( color="black", 
+                                    size=12)) +
+  theme(legend.position="none",
+        plot.margin=unit(c(0.5,0.25,-0.5,-0.2), "cm")) + 
+  theme(plot.title = element_text(size=22)) +
+  geom_hline(yintercept=26.5, linetype="dashed", color = "darkred", size = 1)
+# geom_hline(yintercept = 18.5, linetype = 2),
+p4=  SCAplot + theme(axis.text.x=element_text(angle=50, size=7, vjust=1, hjust = 1)) +
+  scale_x_discrete(
+    labels=scaspecies_fullname) + scale_y_discrete(
+      labels=scacommname_short) +
+  theme(axis.text.y = element_text(face="bold", color="#993333", 
+                                   size=12)) +
+  theme(axis.text.x = element_text( color="black", 
+                                    size=12)) +
+  theme(plot.title = element_text(size=22)) +
+  theme(legend.title = element_text(size = 12, face = "bold"),
+        legend.position="bottom",   legend.text = element_text(size=12),
+        plot.margin=unit(c(0.5,0.25,-0.5,0), "cm")) + 
+  geom_hline(yintercept=9.5, linetype="dashed", color = "darkred", size = 1) 
+
+alllandings = ggarrange(p1, p2 ,p3 ,p4,  heights = c(1,1.5,1,1.5),ncol=2, nrow =2, 
+                        widths = c(1.5,1.5,1,1), legend.grob = get_legend(p4))
+
+
 
 df <- data.frame()
 arrowplot = ggplot(df) + geom_point() + xlim(0, 10) + ylim(0, 1) +
   geom_segment(aes(x = 10, y = 0.5, xend = 1, yend = 0.5), arrow = arrow(length = unit(0.5, "cm"))) +
-  annotate("text", x = 9, y = 0.3, label = "Low species risk") +
-  annotate("text", x = 1, y = 0.3, label = "High species risk") +
+  annotate("text", x = 9, y = 0.3, label = "Low species risk", size = 5) +
+  annotate("text", x = 1, y = 0.3, label = "High species risk", size = 5) +
   theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
         panel.background = element_blank(), axis.line=element_blank(),
         axis.text.x=element_blank(),
@@ -1126,10 +1160,10 @@ arrowplot = ggplot(df) + geom_point() + xlim(0, 10) + ylim(0, 1) +
         axis.ticks=element_blank(),
         axis.title.x=element_blank(),
         axis.title.y=element_blank(),
-        plot.margin=unit(c(-0.5,1,1,1), "cm")) 
-alllandings2 = ggarrange(alllandings, arrowplot, heights = c(2, 0.2),
+        plot.margin=unit(c(-0.5,0,0,0), "cm")) 
+alllandings2 = ggarrange(alllandings, arrowplot, heights = c(3, 0.1),
                          ncol = 1, nrow = 2)
-pdf("Landingsbystate_7.5.21.pdf", height = 9, width = 14)
+pdf("Landingsbystate_6.2022.pdf", height = 12, width = 18)
 alllandings2
 dev.off()
 
@@ -1294,7 +1328,7 @@ risk10percentile = quantile(Alldata_final_subset$risk, 0.95)
 states <- map_data("state")
 west_coast <- subset(states, region %in% c("california", "oregon", "washington"))
 plotrisk =  ggplot() + coord_fixed(1.3) +
-  geom_sf(data = world) +  geom_sf(data = states_sf, fill = "grey") +
+  geom_sf(data = world, fill = "white", color = alpha("black", 0.5)) +  geom_sf(data = states_sf, fill = "grey") +
   geom_point(data = Alldata_final_subset, aes(x = PRIMARY_LONGITUDE, y = PRIMARY_LATITUDE, col = risk), size = 2, shape = 16) +
   geom_text_repel(data=subset(Alldata_final_subset, risk > 1.137),
                   aes(x = PRIMARY_LONGITUDE, y = PRIMARY_LATITUDE,
@@ -1304,9 +1338,9 @@ plotrisk =  ggplot() + coord_fixed(1.3) +
   coord_sf(xlim = c(-130, -115), ylim = c(30,51), expand = FALSE)
 
 plotSVI = ggplot() + coord_fixed(1.3) +
-  geom_sf(data = world) +  geom_sf(data = states_sf, fill = "grey") +
+  geom_sf(data = world, fill = "white", color = alpha("black", 0.5)) +  geom_sf(data = states_sf, fill = "grey") +
   geom_point(data = Alldata_final_subset, aes(x = PRIMARY_LONGITUDE, y = PRIMARY_LATITUDE, col =total), size = 2, shape = 16) +
-  geom_text_repel(data=subset(Alldata_final_subset, total > 0.95),
+  geom_text_repel(data=subset(Alldata_final_subset, total > 0.95), nudge_x = 1, nudge_y = 1,
                   aes(x = PRIMARY_LONGITUDE, y = PRIMARY_LATITUDE,
                       label=tolower((substr(GEO_NAME,1,nchar(GEO_NAME)-4)))), 
                   fontface = 'bold', col = ("black")) +
@@ -1315,9 +1349,9 @@ plotSVI = ggplot() + coord_fixed(1.3) +
 
 vulntop5 = quantile(Alldata_final_subset$vuln, 0.95) 
 plotvuln = ggplot() + coord_fixed(1.3) +
-  geom_sf(data = world) +  geom_sf(data = states_sf, fill = "grey") +
+  geom_sf(data = world, fill = "white", color = alpha("black", 0.5)) +  geom_sf(data = states_sf, fill = "grey") +
   geom_point(data = Alldata_final_subset, aes(x = PRIMARY_LONGITUDE, y = PRIMARY_LATITUDE, col = vuln), size = 2, shape = 16) +
-  geom_text_repel(data=subset(Alldata_final_subset, vuln > 1.351),
+  geom_text_repel(data=subset(Alldata_final_subset, vuln > 1.351), nudge_x = 1,
                   aes(x = PRIMARY_LONGITUDE, y = PRIMARY_LATITUDE,label=tolower((substr(GEO_NAME,1,nchar(GEO_NAME)-4)))), 
                   fontface = 'bold', col = ("black")) +
   xlab("")+ylab("")+ggtitle("c) Community Vulnerability")+
@@ -1327,7 +1361,7 @@ plotvuln = ggplot() + coord_fixed(1.3) +
 statefill = c(mean(WAavgdif), mean(ORavgdif), mean(NCAavgdif), mean(SCAavgdif))
 Alldata_final_subset$Difference = (rank(Alldata_final_subset$vuln) - rank(Alldata_final_subset$risk))
 plotdif = ggplot() + coord_fixed(1.3) +
-  geom_sf(data = world) +  geom_sf(data = states_sf, fill = 'grey') +
+  geom_sf(data = world, fill = "white", color = alpha("black", 0.5)) +  geom_sf(data = states_sf, fill = 'grey') +
   geom_point(data = Alldata_final_subset, aes(x = PRIMARY_LONGITUDE, y = PRIMARY_LATITUDE, col = Difference), size = 2, shape = 16) +
   xlab("")+ylab("")+ggtitle("d) Difference: \n Rank Vuln - Rank Risk")+
   coord_sf(xlim = c(-130, -115), ylim = c(30,51), expand = FALSE)
