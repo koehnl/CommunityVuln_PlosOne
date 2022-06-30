@@ -37,3 +37,5 @@ non-disclosure agreement. R code to summarize PacFIN data as done for this paper
 
 Values for community reliance (from NOAA California Current Integrated Ecosystem
 Assessment) will be provided in the same Dryad repository at the time of publication.
+
+Note that specific sizing of figures specified in code may change during editing process for manuscript publication
